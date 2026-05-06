@@ -99,7 +99,8 @@ class InventoryProvider extends ChangeNotifier {
         createdAt: now,
         updatedAt: now,
       );
-      await _db.insertProduct(product);
+      
+      _products.add(product);
 
       if (quantity > 0) {
         final historyEntry = StockHistory(
@@ -113,10 +114,18 @@ class InventoryProvider extends ChangeNotifier {
           note: 'Initial stock',
           timestamp: now,
         );
-        await _db.insertHistory(historyEntry);
+        _history.insert(0, historyEntry);
+        try {
+          await _db.insertHistory(historyEntry);
+        } catch (_) {}
       }
 
-      await loadData();
+      notifyListeners();
+
+      try {
+        await _db.insertProduct(product);
+      } catch (_) {}
+      
       return null;
     } catch (e) {
       return 'Error adding product: ${e.toString()}';
@@ -126,8 +135,14 @@ class InventoryProvider extends ChangeNotifier {
   Future<String?> updateProduct(Product updatedProduct) async {
     try {
       updatedProduct.updatedAt = DateTime.now();
-      await _db.updateProduct(updatedProduct);
-      await loadData();
+      final index = _products.indexWhere((p) => p.id == updatedProduct.id);
+      if (index != -1) {
+        _products[index] = updatedProduct;
+        notifyListeners();
+      }
+      try {
+        await _db.updateProduct(updatedProduct);
+      } catch (_) {}
       return null;
     } catch (e) {
       return 'Error updating product: ${e.toString()}';
@@ -136,8 +151,12 @@ class InventoryProvider extends ChangeNotifier {
 
   Future<String?> deleteProduct(String id) async {
     try {
-      await _db.deleteProduct(id);
-      await loadData();
+      _products.removeWhere((p) => p.id == id);
+      _history.removeWhere((h) => h.productId == id);
+      notifyListeners();
+      try {
+        await _db.deleteProduct(id);
+      } catch (_) {}
       return null;
     } catch (e) {
       return 'Error deleting product: ${e.toString()}';
@@ -163,8 +182,6 @@ class InventoryProvider extends ChangeNotifier {
       product.quantity = after;
       product.updatedAt = DateTime.now();
 
-      await _db.updateProduct(product);
-
       final historyEntry = StockHistory(
         id: _uuid.v4(),
         productId: productId,
@@ -176,8 +193,15 @@ class InventoryProvider extends ChangeNotifier {
         note: note,
         timestamp: DateTime.now(),
       );
-      await _db.insertHistory(historyEntry);
-      await loadData();
+      
+      _history.insert(0, historyEntry);
+      notifyListeners();
+
+      try {
+        await _db.updateProduct(product);
+        await _db.insertHistory(historyEntry);
+      } catch (_) {}
+      
       return null;
     } catch (e) {
       return 'Error: ${e.toString()}';
@@ -205,8 +229,6 @@ class InventoryProvider extends ChangeNotifier {
       product.quantity = after;
       product.updatedAt = DateTime.now();
 
-      await _db.updateProduct(product);
-
       final historyEntry = StockHistory(
         id: _uuid.v4(),
         productId: productId,
@@ -218,8 +240,15 @@ class InventoryProvider extends ChangeNotifier {
         note: note,
         timestamp: DateTime.now(),
       );
-      await _db.insertHistory(historyEntry);
-      await loadData();
+      
+      _history.insert(0, historyEntry);
+      notifyListeners();
+
+      try {
+        await _db.updateProduct(product);
+        await _db.insertHistory(historyEntry);
+      } catch (_) {}
+      
       return null;
     } catch (e) {
       return 'Error: ${e.toString()}';
